@@ -4,7 +4,7 @@ from feast.types import Float32, Int64, String
 
 # 1. Trỏ tới file dữ liệu đã qua xử lý của chúng ta
 churn_data_source = FileSource(
-    path="../../../data_pipeline/data/processed/df_processed.csv",
+    path="../../../data_pipeline/data/processed/df_processed.parquet",
     timestamp_field="event_timestamp",
     created_timestamp_column="created_timestamp"
 )

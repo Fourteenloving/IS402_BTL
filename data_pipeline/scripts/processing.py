@@ -45,8 +45,8 @@ def process_data():
     # 6. Export file đã xử lý [cite: 126-131]
     out_dir = '../data/processed'
     os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, 'df_processed.csv')
-    df_processed.to_csv(out_path, index=False)
+    out_path = os.path.join(out_dir, 'df_processed.parquet')
+    df_processed.to_parquet(out_path, index=False)
     print(f"\nTuyệt vời! Đã xuất dữ liệu sạch ra: {out_path}")
 
 

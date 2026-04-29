@@ -5,7 +5,7 @@ from feast.types import Float32, Int64, String
 # 1. Trỏ tới file dữ liệu đã qua xử lý của chúng ta
 churn_data_source = FileSource(
     path="../../../data_pipeline/data/processed/df_processed.csv",
-    timestamp_field="event_timestamp", # Feast bắt buộc phải có cột thời gian
+    timestamp_field="event_timestamp",
     created_timestamp_column="created_timestamp"
 )
 
@@ -13,7 +13,6 @@ churn_data_source = FileSource(
 customer = Entity(
     name="customer",
     join_keys=["CustomerID"],
-    value_type=Int64,
     description="ID của khách hàng",
 )
 
@@ -21,7 +20,7 @@ customer = Entity(
 churn_feature_view = FeatureView(
     name="customer_churn_features",
     entities=[customer],
-    ttl=timedelta(days=3650), # Thời gian sống của dữ liệu
+    ttl=timedelta(days=3650),
     source=churn_data_source,
     schema=[
         Field(name="Age", dtype=Int64),

@@ -1,0 +1,13 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Cài đặt thư viện cho giao diện
+RUN pip install --no-cache-dir gradio requests pandas
+
+# Copy thư mục ui vào trong container
+COPY ui/ ./ui/
+
+EXPOSE 8501
+
+CMD ["python", "ui/app.py"]

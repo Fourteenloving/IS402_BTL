@@ -1,0 +1,28 @@
+
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../mlartifacts:/mlartifacts
+    networks:
+      - churn_network
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    networks:
+      - churn_network
+
+networks:
+  churn_network:
+    driver: bridge

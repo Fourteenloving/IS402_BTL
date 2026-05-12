@@ -80,5 +80,4 @@ with gr.Blocks() as demo:
     btn.click(fn=predict, inputs=[age, tenure, usage_freq, support_calls, payment_delay, total_spend, last_interaction, gender, sub_type, contract_length], outputs=output)
 
 if __name__ == "__main__":
-    demo.launch(server_port=8501, theme=gr.themes.Soft())
     demo.launch(server_name="0.0.0.0", server_port=8501)

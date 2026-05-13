@@ -1,11 +1,14 @@
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Thêm dòng này để xem log ngay lập tức
 ENV PYTHONUNBUFFERED=1
 
-RUN pip install --no-cache-dir fastapi uvicorn pydantic pandas scikit-learn mlflow xgboost
+# 1. Thêm dòng này để nâng cấp công cụ tải gói lên bản mới nhất
+RUN pip install --upgrade pip
+
+# 2. Lệnh cài đặt
+RUN pip install --no-cache-dir fastapi uvicorn pydantic pandas scikit-learn==1.8.0 mlflow xgboost evidently
 
 COPY api/ ./api/
 

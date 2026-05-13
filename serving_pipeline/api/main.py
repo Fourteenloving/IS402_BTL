@@ -1,52 +1,88 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-import mlflow.sklearn
-import pandas as pd
-import sys
-import os
+from typing import Literal
 
-# ĐÃ TẮT MONITOR Ở ĐÂY
-# from .monitor import router as monitor_router
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse
 
-# Ép kiểu UTF-8 cho log Terminal
-sys.stdout.reconfigure(encoding='utf-8')
+from .monitor import generate_drift_artifacts
+from .predictor import get_model, persist_predictions, predict_records
+from .schemas import BatchPredictionResponse, ChurnInput, HealthResponse, PredictionResponse
 
-app = FastAPI(title="Customer Churn Prediction API", version="1.0")
+app = FastAPI(title="Customer Churn Prediction API", version="2.0.0")
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-model_path = os.path.join(CURRENT_DIR, "models", "m-5f93d8667ce84c7c824e94181c601b17", "artifacts")
-model_uri = f"file:///{model_path}".replace("\\", "/")
-
-print(f"Đang tải mô hình từ: {model_uri}...")
-try:
-    model = mlflow.sklearn.load_model(model_uri)
-    print("Đã tải mô hình thành công và sẵn sàng dự đoán!")
-except Exception as e:
-    print(f"Lỗi khi tải mô hình: {e}")
-    model = None
-
-class PredictRequest(BaseModel):
-    features: dict
 
 @app.get("/")
-def read_root():
-    return {"message": "API Dự đoán Churn đang hoạt động!"}
+def read_root() -> dict[str, str]:
+    return {"message": "Customer Churn Prediction API is running"}
 
-@app.post("/predict")
-def predict_churn(request: PredictRequest):
-    if model is None:
-        return {"error": "Mô hình chưa được tải. Vui lòng kiểm tra lại MLflow!"}
+
+@app.get("/health", response_model=HealthResponse)
+def health_check() -> HealthResponse:
+    try:
+        get_model()
+        return HealthResponse(status="ok", model_ready=True)
+    except Exception:
+        return HealthResponse(status="error", model_ready=False)
+
+
+@app.post("/predict", response_model=PredictionResponse)
+def predict_churn(payload: ChurnInput, background_tasks: BackgroundTasks) -> PredictionResponse:
+    try:
+        predictions, logged_rows = predict_records([payload])
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    background_tasks.add_task(persist_predictions, logged_rows)
+    prediction = predictions[0]
+    return PredictionResponse(
+        prediction=prediction,
+        status="Churn" if prediction == 1 else "No Churn",
+    )
+
+
+@app.post("/batch", response_model=BatchPredictionResponse)
+def predict_batch(
+    payloads: list[ChurnInput],
+    background_tasks: BackgroundTasks,
+) -> BatchPredictionResponse:
+    if not payloads:
+        raise HTTPException(status_code=400, detail="Batch payload is empty")
 
     try:
-        df_input = pd.DataFrame([request.features])
-        prediction = model.predict(df_input)
-        result = int(prediction[0])
-        return {
-            "prediction": result,
-            "status": "Khách hàng sắp RỜI BỎ (Churn)" if result == 1 else "Khách hàng AN TOÀN (No Churn)"
-        }
-    except Exception as e:
-        return {"error": f"Lỗi trong quá trình dự đoán: {str(e)}"}
+        predictions, logged_rows = predict_records(payloads)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-# ĐÃ TẮT MONITOR Ở ĐÂY
-# app.include_router(monitor_router)
+    background_tasks.add_task(persist_predictions, logged_rows)
+    items = [
+        PredictionResponse(prediction=value, status="Churn" if value == 1 else "No Churn")
+        for value in predictions
+    ]
+    return BatchPredictionResponse(total=len(items), predictions=items)
+
+
+@app.get("/monitor/drift")
+def monitor_drift(
+    format: Literal["json", "html"] = Query(default="json"),
+    reference_path: str | None = Query(default=None),
+    current_path: str | None = Query(default=None),
+    days: int | None = Query(default=30, ge=1),
+    save_html: bool = Query(default=False),
+):
+    try:
+        summary, html_report = generate_drift_artifacts(
+            reference_path=reference_path,
+            current_path=current_path,
+            days=days,
+            save_html=save_html or format == "html",
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if format == "html":
+        return HTMLResponse(content=html_report)
+
+    return summary

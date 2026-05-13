@@ -1,13 +1,19 @@
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Cài đặt thư viện cho giao diện
-RUN pip install --no-cache-dir gradio requests pandas
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV API_URL=http://api:8000/predict
+ENV BATCH_URL=http://api:8000/batch
+ENV DRIFT_URL=http://api:8000/monitor/drift?format=html
+ENV DRIFT_JSON_URL=http://api:8000/monitor/drift?format=json
 
-# Copy thư mục ui vào trong container
-COPY ui/ ./ui/
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir streamlit requests pandas
+
+COPY serving_pipeline/ui ./ui
 
 EXPOSE 8501
 
-CMD ["python", "ui/app.py"]
+CMD ["streamlit", "run", "ui/app.py", "--server.address=0.0.0.0", "--server.port=8501"]

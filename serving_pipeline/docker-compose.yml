@@ -1,21 +1,22 @@
-
-
 services:
   api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: serving_pipeline/Dockerfile
     ports:
       - "8000:8000"
-    volumes:
-      - ../mlartifacts:/mlartifacts
     networks:
       - churn_network
 
   ui:
     build:
-      context: .
-      dockerfile: Dockerfile.ui
+      context: ..
+      dockerfile: serving_pipeline/Dockerfile.ui
+    environment:
+      API_URL: http://api:8000/predict
+      BATCH_URL: http://api:8000/batch
+      DRIFT_URL: http://api:8000/monitor/drift?format=html
+      DRIFT_JSON_URL: http://api:8000/monitor/drift?format=json
     ports:
       - "8501:8501"
     depends_on:
